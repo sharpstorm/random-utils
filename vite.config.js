@@ -5,7 +5,7 @@ module.exports = {
   build: {
     rollupOptions: {
       input: {
-        deflater: resolve(__dirname, 'deflater/index.html')
+        zlibInflator: resolve(__dirname, 'zlib-inflator/index.html')
       }
     }
   }
