@@ -8,5 +8,6 @@ module.exports = {
         zlibInflator: resolve(__dirname, 'zlib-inflator/index.html')
       }
     }
-  }
+  },
+  base: './'
 }
