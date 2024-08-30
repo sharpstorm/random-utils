@@ -1,13 +1,21 @@
 // vite.config.js
-const { resolve } = require('path')
+import { resolve } from 'path';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 module.exports = {
   build: {
     rollupOptions: {
       input: {
-        zlibInflator: resolve(__dirname, 'zlib-inflator/index.html')
+        brotliInflator: resolve(__dirname, 'brotli-inflator/index.html')
       }
     }
   },
-  base: './'
+  base: './',
+  plugins: [
+    nodePolyfills({
+      globals: {
+        Buffer: true
+      }
+    }),
+  ],
 }
