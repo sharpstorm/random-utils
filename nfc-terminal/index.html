@@ -335,6 +335,29 @@
             margin-bottom: 20px;
             border: 1px solid #ffeeba;
         }
+
+        .refresh-btn {
+            width: 100%;
+            padding: 12px;
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: #f5f5f5;
+        }
+
+        .refresh-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 
@@ -409,6 +432,8 @@
 
             <!-- Submit Button -->
             <button class="submit-btn" onclick="submitPayment()">Process Payment</button>
+
+            <button class="refresh-btn" onclick="loadCurrentConfiguration()">Reload Configuration</button>
         </div>
 
         <!-- Status Message -->
@@ -419,10 +444,12 @@
         // Web Bluetooth Configuration
         const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
         const WRITE_CHAR_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+        const READ_CHAR_UUID = 'beb54840-36e1-4688-b7f5-ea07361b26a8';
         const STATUS_CHAR_UUID = 'beb5483f-36e1-4688-b7f5-ea07361b26a8';
 
         let bluetoothDevice = null;
         let writeCharacteristic = null;
+        let readCharacteristic = null;
         let statusCharacteristic = null;
         let isConnected = false;
 
@@ -475,11 +502,16 @@
 
                 // Get characteristics
                 writeCharacteristic = await service.getCharacteristic(WRITE_CHAR_UUID);
+                readCharacteristic = await service.getCharacteristic(READ_CHAR_UUID);
                 statusCharacteristic = await service.getCharacteristic(STATUS_CHAR_UUID);
 
                 // Subscribe to status notifications
                 await statusCharacteristic.startNotifications();
                 statusCharacteristic.addEventListener('characteristicvaluechanged', handleStatusUpdate);
+
+                // Subscribe to read notifications
+                await readCharacteristic.startNotifications();
+                readCharacteristic.addEventListener('characteristicvaluechanged', handleReadResult);
 
                 // Update UI
                 isConnected = true;
@@ -549,7 +581,7 @@
 
             // Show status in UI
             if (value.includes('Successfully wrote')) {
-                showStatus(value, 'success');
+                // Do nothing, keep previous status
             } else if (value.includes('Error')) {
                 showStatus(value, 'error');
             } else {
@@ -686,6 +718,31 @@
             document.getElementById('manualAmount').value = '';
         }
 
+        function updatePaymentTypeUI(type) {
+            paymentType = type;
+
+            // Update toggle buttons
+            document.querySelectorAll('.toggle-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if ((type === 'uen' && btn.textContent === 'UEN') ||
+                    (type === 'mobile' && btn.textContent === 'Mobile')) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // Update label
+            const label = document.getElementById('proxyLabel');
+            const input = document.getElementById('proxyInput');
+
+            if (type === 'uen') {
+                label.textContent = 'UEN Number';
+                input.placeholder = 'e.g., A123456';
+            } else {
+                label.textContent = 'Mobile Number';
+                input.placeholder = 'e.g., +6592929292';
+            }
+        }
+
         // Submit Payment
         async function submitPayment() {
             if (!isConnected) {
@@ -699,7 +756,6 @@
 
             // Determine amount
             let amount = manualAmount ? parseFloat(manualAmount) : selectedAmount;
-            const amountCents = Math.floor(amount * 100);
 
             // Validation
             if (!proxy) {
@@ -707,7 +763,7 @@
                 return;
             }
 
-            if (!amountCents || amountCents <= 0) {
+            if (!amount || amount <= 0) {
                 showStatus('Please select or enter an amount', 'error');
                 return;
             }
@@ -716,7 +772,7 @@
             const finalUrl = new URL('https://openpay.hack2026.gov.sg');
             finalUrl.searchParams.append('type', paymentType);
             finalUrl.searchParams.append('proxy', proxy);
-            finalUrl.searchParams.append('amt', `${amountCents}`);
+            finalUrl.searchParams.append('amt', amount.toFixed(2));
             if (reference) {
                 finalUrl.searchParams.append('ref', reference.substring(0, 16));
             }
@@ -734,7 +790,7 @@
 
                 await writeCharacteristic.writeValue(urlData);
 
-                showStatus(`Sent to terminal: $${amount.toFixed(2)}`, 'success');
+                showStatus(`Tap to pay: $${amount.toFixed(2)}`, 'success');
 
                 // Clear reference after successful payment
                 document.getElementById('referenceInput').value = '';
@@ -756,16 +812,110 @@
             }
         }
 
+        async function loadCurrentConfiguration() {
+            if (!isConnected) {
+                showStatus('Please connect to the NFC Terminal first', 'error');
+                return;
+            }
+
+            try {
+                const readBtn = event.target;
+                readBtn.disabled = true;
+                readBtn.textContent = 'Reading...';
+
+                showStatus('Requesting NFC terminal read...', 'info');
+
+                // Write a trigger byte to initiate read
+                const encoder = new TextEncoder();
+                await readCharacteristic.writeValue(encoder.encode('READ'));
+
+                console.log('Read request sent, waiting for response...');
+
+            } catch (error) {
+                showStatus(`Read error: ${error.message}`, 'error');
+                console.error('Read error:', error);
+
+                const readBtn = document.querySelector('[onclick="loadCurrentConfiguration()"]');
+                readBtn.disabled = false;
+                readBtn.textContent = 'Reload Configuration';
+            }
+        }
+
+        // Handle Read Result
+        function handleReadResult(event) {
+            const decoder = new TextDecoder();
+            const result = decoder.decode(event.target.value);
+
+            console.log('Read result:', result);
+
+            const resultDiv = document.getElementById('readResult');
+            const readBtn = document.querySelector('[onclick="loadCurrentConfiguration()"]');
+
+            if (result.startsWith('SUCCESS:')) {
+                const urlString = result.substring(8);
+                try {
+                    const url = new URL(urlString);
+                    const type = url.searchParams.get('type');
+                    const proxy = url.searchParams.get('proxy');
+                    const amountString = url.searchParams.get('amt');
+                    const ref = url.searchParams.get('ref');
+
+                    if (type && (type === 'uen' || type === 'mobile')) {
+                        paymentType = type;
+                        updatePaymentTypeUI(type);
+                    }
+
+                    if (proxy) {
+                        document.getElementById('proxyInput').value = proxy;
+                    }
+
+                    if (amountString) {
+                        const amount = parseFloat(amountString);
+                        // Check if this amount exists in shortcuts
+                        const shortcuts = JSON.parse(localStorage.getItem('amount_shortcuts') || '[]');
+                        if (shortcuts.includes(amount)) {
+                            // Wait for shortcuts to render, then select it
+                            setTimeout(() => {
+                                const buttons = document.querySelectorAll('.amount-btn');
+                                buttons.forEach(btn => {
+                                    btn.classList.remove('selected');
+                                    if (btn.textContent.includes(amount.toFixed(2))) {
+                                        btn.classList.add('selected');
+                                        selectedAmount = amount;
+                                    }
+                                });
+                            }, 100);
+                        } else {
+                            // Set as manual amount
+                            document.getElementById('manualAmount').value = amount.toFixed(2);
+                        }
+                    }
+
+                    if (ref) {
+                        document.getElementById('referenceInput').value = ref;
+                    }
+
+                } catch (err) {
+                    console.log('error, not updating fields')
+                    console.error(err)
+                }
+
+                showStatus('Configuration loaded from NFC interface', 'success');
+            } else if (result.startsWith('ERROR:')) {
+                const error = result.substring(6);
+                showStatus('Failed to read tag', 'error');
+            }
+
+            readBtn.disabled = false;
+            readBtn.textContent = 'Reload Configuration';
+        }
+
         // Status Message
         function showStatus(message, type) {
             const status = document.getElementById('status');
             status.textContent = message;
             status.className = `status ${type}`;
             status.style.display = 'block';
-
-            setTimeout(() => {
-                status.style.display = 'none';
-            }, 5000);
         }
     </script>
 </body>
