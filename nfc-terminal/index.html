@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFC POS Terminal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 25px;
+            text-align: center;
+            font-size: 24px;
+        }
+
+        .section {
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .toggle-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .toggle-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .save-btn {
+            padding: 8px 16px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        .save-btn:hover {
+            background: #45a049;
+        }
+
+        .saved-info {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .amount-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .amount-btn {
+            padding: 20px 10px;
+            background: #f5f5f5;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .amount-btn:hover {
+            background: #e8e8e8;
+        }
+
+        .amount-btn.selected {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .remove-shortcut {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 20px;
+            height: 20px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 1;
+            display: none;
+        }
+
+        .amount-btn:hover .remove-shortcut {
+            display: block;
+        }
+
+        .add-shortcut {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .add-shortcut input {
+            flex: 1;
+        }
+
+        .add-shortcut button {
+            padding: 12px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .manual-amount {
+            margin-top: 15px;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .refresh-btn {
+            width: 100%;
+            padding: 12px;
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: #f5f5f5;
+        }
+
+        .refresh-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            text-align: center;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .small-text {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>NFC POS Terminal</h1>
+
+        <!-- Payment Type Selection -->
+        <div class="section">
+            <div class="section-title">Payment Type</div>
+            <div class="toggle-group">
+                <button class="toggle-btn active" onclick="setPaymentType('uen')">UEN</button>
+                <button class="toggle-btn" onclick="setPaymentType('mobile')">Mobile</button>
+            </div>
+        </div>
+
+        <!-- Proxy Input -->
+        <div class="section">
+            <div class="section-title">Proxy Details</div>
+            <div class="input-group">
+                <label id="proxyLabel">UEN Number</label>
+                <input type="text" id="proxyInput" placeholder="e.g., A123456">
+                <button class="save-btn" onclick="saveProxy()">Save Proxy</button>
+                <div id="savedProxyInfo" class="saved-info" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Amount Shortcuts -->
+        <div class="section">
+            <div class="section-title">Amount Shortcuts</div>
+            <div class="amount-grid" id="amountGrid"></div>
+            <div class="add-shortcut">
+                <input type="number" id="newShortcut" placeholder="Add amount (e.g., 50)" step="0.01" min="0">
+                <button onclick="addShortcut()">Add</button>
+            </div>
+        </div>
+
+        <!-- Manual Amount -->
+        <div class="section manual-amount">
+            <div class="section-title">Manual Amount</div>
+            <div class="input-group">
+                <label>Enter Amount ($)</label>
+                <input type="number" id="manualAmount" placeholder="0.00" step="0.01" min="0">
+                <div class="small-text">Leave blank to use selected shortcut</div>
+            </div>
+        </div>
+
+        <!-- Reference -->
+        <div class="section">
+            <div class="section-title">Payment Reference (Optional)</div>
+            <div class="input-group">
+                <label>Reference ID</label>
+                <input type="text" id="referenceInput" placeholder="e.g., INV-001">
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button class="submit-btn" onclick="submitPayment()">Process Payment</button>
+
+        <!-- Status Message -->
+        <div id="status" class="status"></div>
+
+        <!-- Refresh Configuration Button -->
+        <button class="refresh-btn" onclick="loadCurrentConfiguration()">Reload Configuration</button>
+    </div>
+
+    <script>
+        // State
+        let paymentType = 'uen';
+        let selectedAmount = null;
+
+        // Load saved data on page load
+        window.onload = function () {
+            loadCurrentConfiguration();
+            loadSavedProxies();
+            loadAmountShortcuts();
+        };
+
+        // Load Current Configuration from Backend
+        async function loadCurrentConfiguration() {
+            const button = document.querySelector('.refresh-btn');
+            try {
+                button.disabled = true;
+                button.textContent = 'Loading...';
+
+                const response = await fetch('/api/nfc/data', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const config = await response.json();
+
+                    console.log(config);
+
+                    if (!config.success) {
+                        console.log('Failed to read NFC Tag');
+                        return;
+                    }
+
+                    try {
+                        const url = new URL(config.url);
+                        const type = url.searchParams.get('type');
+                        const proxy = url.searchParams.get('proxy');
+                        const amountCents = url.searchParams.get('amt');
+                        const ref = url.searchParams.get('ref');
+
+                        if (type && (type === 'uen' || type === 'mobile')) {
+                            paymentType = type;
+                            updatePaymentTypeUI(type);
+                        }
+
+                        if (proxy) {
+                            document.getElementById('proxyInput').value = proxy;
+                        }
+
+                        if (amountCents) {
+                            const amount = parseInt(amountCents) / 100;
+                            // Check if this amount exists in shortcuts
+                            const shortcuts = JSON.parse(localStorage.getItem('amount_shortcuts') || '[]');
+                            if (shortcuts.includes(amount)) {
+                                // Wait for shortcuts to render, then select it
+                                setTimeout(() => {
+                                    const buttons = document.querySelectorAll('.amount-btn');
+                                    buttons.forEach(btn => {
+                                        if (btn.textContent.includes(amount.toFixed(2))) {
+                                            btn.classList.add('selected');
+                                            selectedAmount = amount;
+                                        }
+                                    });
+                                }, 100);
+                            } else {
+                                // Set as manual amount
+                                document.getElementById('manualAmount').value = amount.toFixed(2);
+                            }
+                        }
+
+                        if (ref) {
+                            document.getElementById('referenceInput').value = ref;
+                        }
+
+                    } catch {
+                        console.log('error, not updating fields')
+                    }
+
+                    showStatus('Configuration loaded from NFC interface', 'success');
+                } else {
+                    console.log('No configuration found or API not available');
+                }
+            } catch (error) {
+                console.log('Could not load configuration:', error.message);
+                // Silently fail - configuration API might not be available yet
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Reload Configuration';
+            }
+        }
+
+        // Update Payment Type UI
+        function updatePaymentTypeUI(type) {
+            paymentType = type;
+
+            // Update toggle buttons
+            document.querySelectorAll('.toggle-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if ((type === 'uen' && btn.textContent === 'UEN') ||
+                    (type === 'mobile' && btn.textContent === 'Mobile')) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // Update label
+            const label = document.getElementById('proxyLabel');
+            const input = document.getElementById('proxyInput');
+
+            if (type === 'uen') {
+                label.textContent = 'UEN Number';
+                input.placeholder = 'e.g., A123456';
+            } else {
+                label.textContent = 'Mobile Number';
+                input.placeholder = 'e.g., +6592929292';
+            }
+        }
+
+        // Payment Type
+        function setPaymentType(type) {
+            paymentType = type;
+
+            // Update toggle buttons
+            document.querySelectorAll('.toggle-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Update label and load saved proxy
+            const label = document.getElementById('proxyLabel');
+            const input = document.getElementById('proxyInput');
+
+            if (type === 'uen') {
+                label.textContent = 'UEN Number';
+                input.placeholder = 'e.g., A123456';
+            } else {
+                label.textContent = 'Mobile Number';
+                input.placeholder = 'e.g., 92929292';
+            }
+
+            loadSavedProxies();
+        }
+
+        // Save Proxy
+        function saveProxy() {
+            const proxy = document.getElementById('proxyInput').value.trim();
+            if (!proxy) {
+                alert('Please enter a proxy value');
+                return;
+            }
+
+            localStorage.setItem(`saved_proxy_${paymentType}`, proxy);
+            showSavedProxyInfo();
+            showStatus('Proxy saved successfully!', 'success');
+        }
+
+        // Load Saved Proxies
+        function loadSavedProxies() {
+            const savedProxy = localStorage.getItem(`saved_proxy_${paymentType}`);
+            const input = document.getElementById('proxyInput');
+
+            if (savedProxy) {
+                input.value = savedProxy;
+                showSavedProxyInfo();
+            } else {
+                input.value = '';
+                document.getElementById('savedProxyInfo').style.display = 'none';
+            }
+        }
+
+        function showSavedProxyInfo() {
+            const savedProxy = localStorage.getItem(`saved_proxy_${paymentType}`);
+            const infoDiv = document.getElementById('savedProxyInfo');
+
+            if (savedProxy) {
+                infoDiv.textContent = `Saved ${paymentType.toUpperCase()}: ${savedProxy}`;
+                infoDiv.style.display = 'block';
+            }
+        }
+
+        // Amount Shortcuts
+        function loadAmountShortcuts() {
+            const shortcuts = JSON.parse(localStorage.getItem('amount_shortcuts') || '[]');
+            const grid = document.getElementById('amountGrid');
+            grid.innerHTML = '';
+
+            shortcuts.forEach(amount => {
+                const btn = document.createElement('button');
+                btn.className = 'amount-btn';
+                btn.innerHTML = `
+                    $${parseFloat(amount).toFixed(2)}
+                    <button class="remove-shortcut" onclick="removeShortcut(${amount}); event.stopPropagation();">×</button>
+                `;
+                btn.onclick = function () {
+                    selectAmount(amount);
+                };
+                grid.appendChild(btn);
+            });
+        }
+
+        function addShortcut() {
+            const input = document.getElementById('newShortcut');
+            const amount = parseFloat(input.value);
+
+            if (!amount || amount <= 0) {
+                alert('Please enter a valid amount');
+                return;
+            }
+
+            const shortcuts = JSON.parse(localStorage.getItem('amount_shortcuts') || '[]');
+
+            if (!shortcuts.includes(amount)) {
+                shortcuts.push(amount);
+                shortcuts.sort((a, b) => a - b);
+                localStorage.setItem('amount_shortcuts', JSON.stringify(shortcuts));
+                loadAmountShortcuts();
+                input.value = '';
+                showStatus('Amount shortcut added!', 'success');
+            } else {
+                alert('This amount already exists');
+            }
+        }
+
+        function removeShortcut(amount) {
+            let shortcuts = JSON.parse(localStorage.getItem('amount_shortcuts') || '[]');
+            shortcuts = shortcuts.filter(a => a !== amount);
+            localStorage.setItem('amount_shortcuts', JSON.stringify(shortcuts));
+            loadAmountShortcuts();
+
+            if (selectedAmount === amount) {
+                selectedAmount = null;
+            }
+        }
+
+        function selectAmount(amount) {
+            selectedAmount = amount;
+
+            // Update visual selection
+            document.querySelectorAll('.amount-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+
+            // Clear manual input
+            document.getElementById('manualAmount').value = '';
+        }
+
+        // Submit Payment
+        async function submitPayment() {
+            const proxy = document.getElementById('proxyInput').value.trim();
+            const manualAmount = document.getElementById('manualAmount').value;
+            const reference = document.getElementById('referenceInput').value.trim();
+
+            // Determine amount
+            let amount = manualAmount ? parseFloat(manualAmount) : selectedAmount;
+            const amountCents = Math.floor(amount * 100);
+
+            // Validation
+            if (!proxy) {
+                showStatus('Please enter a proxy value', 'error');
+                return;
+            }
+
+            if (!amountCents || amountCents <= 0) {
+                showStatus('Please select or enter an amount', 'error');
+                return;
+            }
+
+            // Prepare URL
+            const finalUrl = new URL('https://openpay.hack2026.gov.sg')
+            finalUrl.searchParams.append('type', paymentType)
+            finalUrl.searchParams.append('proxy', proxy);
+            finalUrl.searchParams.append('amt', `${amountCents}`);
+            if (reference) {
+                finalUrl.searchParams.append('ref', reference.substring(0, 16));
+            }
+
+            // Make API call
+            try {
+                const button = document.querySelector('.submit-btn');
+                button.disabled = true;
+                button.textContent = 'Processing...';
+
+                const response = await fetch('/api/nfc/data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url: finalUrl.href })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showStatus(`Scan to pay: $${amount.toFixed(2)}`, 'success');
+
+                    // Clear reference after successful payment
+                    document.getElementById('referenceInput').value = '';
+                    document.getElementById('manualAmount').value = '';
+
+                    // Deselect amount button
+                    document.querySelectorAll('.amount-btn').forEach(btn => {
+                        btn.classList.remove('selected');
+                    });
+                    selectedAmount = null;
+                } else {
+                    const error = await response.json();
+                    showStatus(`POS Terminal failed: ${error.message || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            } finally {
+                const button = document.querySelector('.submit-btn');
+                button.disabled = false;
+                button.textContent = 'Process Payment';
+            }
+        }
+
+        // Status Message
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+
+</html>
