@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NFC POS Terminal</title>
+    <title>NFC POS Terminal (Bluetooth)</title>
     <style>
         * {
             margin: 0;
@@ -33,6 +33,64 @@
             margin-bottom: 25px;
             text-align: center;
             font-size: 24px;
+        }
+
+        .bluetooth-section {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 10px;
+        }
+
+        .bluetooth-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ccc;
+        }
+
+        .status-indicator.connected {
+            background: #4caf50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+
+        .status-indicator.disconnected {
+            background: #f44336;
+        }
+
+        .status-text {
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .connect-btn {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .connect-btn:hover {
+            background: #5568d3;
+        }
+
+        .connect-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         .section {
@@ -222,29 +280,6 @@
             transform: none;
         }
 
-        .refresh-btn {
-            width: 100%;
-            padding: 12px;
-            background: white;
-            color: #667eea;
-            border: 2px solid #667eea;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 15px;
-            transition: all 0.3s;
-        }
-
-        .refresh-btn:hover {
-            background: #f5f5f5;
-        }
-
-        .refresh-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
         .status {
             margin-top: 15px;
             padding: 12px;
@@ -266,183 +301,271 @@
             border: 1px solid #f5c6cb;
         }
 
-        .small-text {
-            font-size: 12px;
-            color: #999;
-            margin-top: 5px;
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .disabled-overlay {
+            position: relative;
+        }
+
+        .disabled-overlay::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.7);
+            display: none;
+            border-radius: 10px;
+        }
+
+        .disabled-overlay.disabled::after {
+            display: block;
+        }
+
+        .ble-not-supported {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ffeeba;
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <h1>NFC POS Terminal</h1>
+        <h1>🔵 NFC POS Terminal (Bluetooth)</h1>
 
-        <!-- Payment Type Selection -->
-        <div class="section">
-            <div class="section-title">Payment Type</div>
-            <div class="toggle-group">
-                <button class="toggle-btn active" onclick="setPaymentType('uen')">UEN</button>
-                <button class="toggle-btn" onclick="setPaymentType('mobile')">Mobile</button>
+        <!-- Bluetooth Not Supported Warning -->
+        <div id="bleNotSupported" class="ble-not-supported" style="display: none;">
+            ⚠️ Web Bluetooth is not supported in your browser. Please use Chrome, Edge, or Opera.
+        </div>
+
+        <!-- Bluetooth Connection Section -->
+        <div class="bluetooth-section">
+            <div class="bluetooth-status">
+                <div id="statusIndicator" class="status-indicator disconnected"></div>
+                <span id="statusText" class="status-text">Not connected</span>
+            </div>
+            <button id="connectBtn" class="connect-btn" onclick="toggleConnection()">Connect to NFC Terminal</button>
+            <div id="pairingInfo" class="saved-info"
+                style="display: none; margin-top: 10px; background: #fff3cd; color: #856404; border: 1px solid #ffeeba;">
+                ⚠️ Use 777777 for pairing
             </div>
         </div>
 
-        <!-- Proxy Input -->
-        <div class="section">
-            <div class="section-title">Proxy Details</div>
-            <div class="input-group">
-                <label id="proxyLabel">UEN Number</label>
-                <input type="text" id="proxyInput" placeholder="e.g., A123456">
-                <button class="save-btn" onclick="saveProxy()">Save Proxy</button>
+        <!-- Payment Configuration (Disabled until connected) -->
+        <div id="paymentSection" class="disabled-overlay disabled">
+            <!-- Payment Type Toggle -->
+            <div class="section">
+                <div class="section-title">Payment Type</div>
+                <div class="toggle-group">
+                    <button class="toggle-btn active" onclick="setPaymentType('uen')">UEN</button>
+                    <button class="toggle-btn" onclick="setPaymentType('mobile')">Mobile</button>
+                </div>
+            </div>
+
+            <!-- Proxy Input -->
+            <div class="section">
+                <div class="input-group">
+                    <label id="proxyLabel">UEN Number</label>
+                    <input type="text" id="proxyInput" placeholder="e.g., A123456">
+                    <button class="save-btn" onclick="saveProxy()">Save</button>
+                </div>
                 <div id="savedProxyInfo" class="saved-info" style="display: none;"></div>
             </div>
-        </div>
 
-        <!-- Amount Shortcuts -->
-        <div class="section">
-            <div class="section-title">Amount Shortcuts</div>
-            <div class="amount-grid" id="amountGrid"></div>
-            <div class="add-shortcut">
-                <input type="number" id="newShortcut" placeholder="Add amount (e.g., 50)" step="0.01" min="0">
-                <button onclick="addShortcut()">Add</button>
+            <!-- Amount Shortcuts -->
+            <div class="section">
+                <div class="section-title">Quick Amounts</div>
+                <div id="amountGrid" class="amount-grid"></div>
+                <div class="add-shortcut">
+                    <input type="number" id="newShortcut" placeholder="Enter amount" step="0.01" min="0">
+                    <button onclick="addShortcut()">Add</button>
+                </div>
             </div>
-        </div>
 
-        <!-- Manual Amount -->
-        <div class="section manual-amount">
-            <div class="section-title">Manual Amount</div>
-            <div class="input-group">
-                <label>Enter Amount ($)</label>
-                <input type="number" id="manualAmount" placeholder="0.00" step="0.01" min="0">
-                <div class="small-text">Leave blank to use selected shortcut</div>
+            <!-- Manual Amount -->
+            <div class="section manual-amount">
+                <div class="input-group">
+                    <label>Or Enter Amount</label>
+                    <input type="number" id="manualAmount" placeholder="0.00" step="0.01" min="0">
+                </div>
             </div>
-        </div>
 
-        <!-- Reference -->
-        <div class="section">
-            <div class="section-title">Payment Reference (Optional)</div>
-            <div class="input-group">
-                <label>Reference ID</label>
-                <input type="text" id="referenceInput" placeholder="e.g., INV-001">
+            <!-- Optional Reference -->
+            <div class="section">
+                <div class="input-group">
+                    <label>Reference (Optional)</label>
+                    <input type="text" id="referenceInput" placeholder="Invoice number, order ID, etc." maxlength="16">
+                </div>
             </div>
-        </div>
 
-        <!-- Submit Button -->
-        <button class="submit-btn" onclick="submitPayment()">Process Payment</button>
+            <!-- Submit Button -->
+            <button class="submit-btn" onclick="submitPayment()">Process Payment</button>
+        </div>
 
         <!-- Status Message -->
         <div id="status" class="status"></div>
-
-        <!-- Refresh Configuration Button -->
-        <button class="refresh-btn" onclick="loadCurrentConfiguration()">Reload Configuration</button>
     </div>
 
     <script>
-        // State
+        // Web Bluetooth Configuration
+        const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+        const WRITE_CHAR_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+        const STATUS_CHAR_UUID = 'beb5483f-36e1-4688-b7f5-ea07361b26a8';
+
+        let bluetoothDevice = null;
+        let writeCharacteristic = null;
+        let statusCharacteristic = null;
+        let isConnected = false;
+
+        // Payment State
         let paymentType = 'uen';
         let selectedAmount = null;
 
-        // Load saved data on page load
+        // Check if Web Bluetooth is supported
+        if (!navigator.bluetooth) {
+            document.getElementById('bleNotSupported').style.display = 'block';
+            document.getElementById('connectBtn').disabled = true;
+        }
+
+        // Initialize
         window.onload = function () {
-            loadCurrentConfiguration();
-            loadSavedProxies();
             loadAmountShortcuts();
+            loadSavedProxies();
         };
 
-        // Load Current Configuration from Backend
-        async function loadCurrentConfiguration() {
-            const button = document.querySelector('.refresh-btn');
-            try {
-                button.disabled = true;
-                button.textContent = 'Loading...';
+        // Bluetooth Connection
+        async function toggleConnection() {
+            if (isConnected) {
+                disconnect();
+            } else {
+                await connect();
+            }
+        }
 
-                const response = await fetch('/api/nfc/data', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
+        async function connect() {
+            try {
+                const button = document.getElementById('connectBtn');
+                const pairingInfo = document.getElementById('pairingInfo');
+                button.disabled = true;
+                button.textContent = 'Connecting...';
+
+                // Show pairing instructions
+                pairingInfo.style.display = 'block';
+
+                // Request Bluetooth device
+                bluetoothDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: [SERVICE_UUID] }]
                 });
 
-                if (response.ok) {
-                    const config = await response.json();
+                // Add disconnect listener
+                bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
 
-                    console.log(config);
+                // Connect to GATT server
+                const server = await bluetoothDevice.gatt.connect();
+                const service = await server.getPrimaryService(SERVICE_UUID);
 
-                    if (!config.success) {
-                        console.log('Failed to read NFC Tag');
-                        return;
-                    }
+                // Get characteristics
+                writeCharacteristic = await service.getCharacteristic(WRITE_CHAR_UUID);
+                statusCharacteristic = await service.getCharacteristic(STATUS_CHAR_UUID);
 
-                    try {
-                        const url = new URL(config.url);
-                        const type = url.searchParams.get('type');
-                        const proxy = url.searchParams.get('proxy');
-                        const amountCents = url.searchParams.get('amt');
-                        const ref = url.searchParams.get('ref');
+                // Subscribe to status notifications
+                await statusCharacteristic.startNotifications();
+                statusCharacteristic.addEventListener('characteristicvaluechanged', handleStatusUpdate);
 
-                        if (type && (type === 'uen' || type === 'mobile')) {
-                            paymentType = type;
-                            updatePaymentTypeUI(type);
-                        }
+                // Update UI
+                isConnected = true;
+                pairingInfo.style.display = 'none';
+                updateConnectionUI();
+                showStatus('Connected to NFC Terminal', 'success');
 
-                        if (proxy) {
-                            document.getElementById('proxyInput').value = proxy;
-                        }
-
-                        if (amountCents) {
-                            const amount = parseInt(amountCents) / 100;
-                            // Check if this amount exists in shortcuts
-                            const shortcuts = JSON.parse(localStorage.getItem('amount_shortcuts') || '[]');
-                            if (shortcuts.includes(amount)) {
-                                // Wait for shortcuts to render, then select it
-                                setTimeout(() => {
-                                    const buttons = document.querySelectorAll('.amount-btn');
-                                    buttons.forEach(btn => {
-                                        if (btn.textContent.includes(amount.toFixed(2))) {
-                                            btn.classList.add('selected');
-                                            selectedAmount = amount;
-                                        }
-                                    });
-                                }, 100);
-                            } else {
-                                // Set as manual amount
-                                document.getElementById('manualAmount').value = amount.toFixed(2);
-                            }
-                        }
-
-                        if (ref) {
-                            document.getElementById('referenceInput').value = ref;
-                        }
-
-                    } catch {
-                        console.log('error, not updating fields')
-                    }
-
-                    showStatus('Configuration loaded from NFC interface', 'success');
-                } else {
-                    console.log('No configuration found or API not available');
-                }
             } catch (error) {
-                console.log('Could not load configuration:', error.message);
-                // Silently fail - configuration API might not be available yet
-            } finally {
+                console.error('Connection failed:', error);
+                document.getElementById('pairingInfo').style.display = 'none';
+
+                let errorMsg = 'Connection failed: ' + error.message;
+                if (error.message.includes('User cancelled')) {
+                    errorMsg = 'Connection cancelled';
+                } else if (error.message.includes('GATT')) {
+                    errorMsg = 'Pairing failed - check the pairing code on the device';
+                }
+
+                showStatus(errorMsg, 'error');
+                const button = document.getElementById('connectBtn');
                 button.disabled = false;
-                button.textContent = 'Reload Configuration';
+                button.textContent = 'Connect to NFC Terminal';
+            }
+        }
+
+        function disconnect() {
+            if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+                bluetoothDevice.gatt.disconnect();
+            }
+        }
+
+        function onDisconnected() {
+            isConnected = false;
+            bluetoothDevice = null;
+            writeCharacteristic = null;
+            statusCharacteristic = null;
+            updateConnectionUI();
+            showStatus('Disconnected from NFC Terminal', 'info');
+        }
+
+        function updateConnectionUI() {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const connectBtn = document.getElementById('connectBtn');
+            const paymentSection = document.getElementById('paymentSection');
+
+            if (isConnected) {
+                indicator.classList.remove('disconnected');
+                indicator.classList.add('connected');
+                statusText.textContent = 'Connected to ' + (bluetoothDevice ? bluetoothDevice.name : 'device');
+                connectBtn.textContent = 'Disconnect';
+                connectBtn.disabled = false;
+                paymentSection.classList.remove('disabled');
+            } else {
+                indicator.classList.remove('connected');
+                indicator.classList.add('disconnected');
+                statusText.textContent = 'Not connected';
+                connectBtn.textContent = 'Connect to NFC Terminal';
+                connectBtn.disabled = false;
+                paymentSection.classList.add('disabled');
+            }
+        }
+
+        function handleStatusUpdate(event) {
+            const value = new TextDecoder().decode(event.target.value);
+            console.log('Status from device:', value);
+
+            // Show status in UI
+            if (value.includes('Successfully wrote')) {
+                showStatus(value, 'success');
+            } else if (value.includes('Error')) {
+                showStatus(value, 'error');
+            } else {
+                showStatus(value, 'info');
             }
         }
 
         // Update Payment Type UI
-        function updatePaymentTypeUI(type) {
+        function setPaymentType(type) {
             paymentType = type;
 
             // Update toggle buttons
             document.querySelectorAll('.toggle-btn').forEach(btn => {
                 btn.classList.remove('active');
-                if ((type === 'uen' && btn.textContent === 'UEN') ||
-                    (type === 'mobile' && btn.textContent === 'Mobile')) {
-                    btn.classList.add('active');
-                }
             });
+            event.target.classList.add('active');
 
             // Update label
             const label = document.getElementById('proxyLabel');
@@ -454,29 +577,6 @@
             } else {
                 label.textContent = 'Mobile Number';
                 input.placeholder = 'e.g., +6592929292';
-            }
-        }
-
-        // Payment Type
-        function setPaymentType(type) {
-            paymentType = type;
-
-            // Update toggle buttons
-            document.querySelectorAll('.toggle-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
-
-            // Update label and load saved proxy
-            const label = document.getElementById('proxyLabel');
-            const input = document.getElementById('proxyInput');
-
-            if (type === 'uen') {
-                label.textContent = 'UEN Number';
-                input.placeholder = 'e.g., A123456';
-            } else {
-                label.textContent = 'Mobile Number';
-                input.placeholder = 'e.g., 92929292';
             }
 
             loadSavedProxies();
@@ -588,6 +688,11 @@
 
         // Submit Payment
         async function submitPayment() {
+            if (!isConnected) {
+                showStatus('Please connect to the NFC Terminal first', 'error');
+                return;
+            }
+
             const proxy = document.getElementById('proxyInput').value.trim();
             const manualAmount = document.getElementById('manualAmount').value;
             const reference = document.getElementById('referenceInput').value.trim();
@@ -608,47 +713,42 @@
             }
 
             // Prepare URL
-            const finalUrl = new URL('https://openpay.hack2026.gov.sg')
-            finalUrl.searchParams.append('type', paymentType)
+            const finalUrl = new URL('https://openpay.hack2026.gov.sg');
+            finalUrl.searchParams.append('type', paymentType);
             finalUrl.searchParams.append('proxy', proxy);
             finalUrl.searchParams.append('amt', `${amountCents}`);
             if (reference) {
                 finalUrl.searchParams.append('ref', reference.substring(0, 16));
             }
 
-            // Make API call
+            // Send via Bluetooth
             try {
                 const button = document.querySelector('.submit-btn');
                 button.disabled = true;
                 button.textContent = 'Processing...';
 
-                const response = await fetch('/api/nfc/data', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ url: finalUrl.href })
+                showStatus('Sending to NFC Terminal...', 'info');
+
+                const encoder = new TextEncoder();
+                const urlData = encoder.encode(finalUrl.href);
+
+                await writeCharacteristic.writeValue(urlData);
+
+                showStatus(`Sent to terminal: $${amount.toFixed(2)}`, 'success');
+
+                // Clear reference after successful payment
+                document.getElementById('referenceInput').value = '';
+                document.getElementById('manualAmount').value = '';
+
+                // Deselect amount button
+                document.querySelectorAll('.amount-btn').forEach(btn => {
+                    btn.classList.remove('selected');
                 });
+                selectedAmount = null;
 
-                if (response.ok) {
-                    const result = await response.json();
-                    showStatus(`Scan to pay: $${amount.toFixed(2)}`, 'success');
-
-                    // Clear reference after successful payment
-                    document.getElementById('referenceInput').value = '';
-                    document.getElementById('manualAmount').value = '';
-
-                    // Deselect amount button
-                    document.querySelectorAll('.amount-btn').forEach(btn => {
-                        btn.classList.remove('selected');
-                    });
-                    selectedAmount = null;
-                } else {
-                    const error = await response.json();
-                    showStatus(`POS Terminal failed: ${error.message || 'Unknown error'}`, 'error');
-                }
             } catch (error) {
                 showStatus(`Error: ${error.message}`, 'error');
+                console.error('Write error:', error);
             } finally {
                 const button = document.querySelector('.submit-btn');
                 button.disabled = false;
